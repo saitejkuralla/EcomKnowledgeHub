@@ -4,163 +4,153 @@
 |---|---|
 | Type | fullstack |
 | Commit/Fingerprint | `bcc95601f02b` |
-| Analyzed at | 2026-09-16T08:39:20+00:00 |
+| Analyzed at | 2026-09-16T08:55:38+00:00 |
 
 ---
 
-```markdown
-# OrderManagement Architecture Overview
+# OrderManagement Architecture
 
 ## 1. Purpose & Overview
 
-OrderManagement (OrderFlow) is a full-stack application for managing orders, products, and customers. It enables users to create, view, and manage customers and products, generate orders with product line items, and apply discount logic (such as customer tiers and large order discounts). The system includes both a backend API and an Angular-based frontend.
+OrderManagement (OrderFlow) is a full-stack application for managing orders, customers, and products. It enables users to:
+- Create and view customer, order, and product records.
+- Manage order workflows and apply business discounts.
+- Preview and apply discount rules based on order size and customer tier.
+
+It's divided into a .NET backend API and an Angular-based frontend.
 
 ---
 
 ## 2. Tech Stack
 
 ### Backend
-
 - **Language:** C#
-- **Framework:** ASP.NET Core (Web API)
-- **ORM/DB Layer:** Entity Framework Core
-- **Testing:** xUnit (evident from test naming)
+- **Framework:** .NET (likely ASP.NET Core)
+- **ORM:** Entity Framework Core
+- **Testing:** xUnit/NUnit (based on standard .NET test naming)
 
 ### Frontend
-
 - **Language:** TypeScript
 - **Framework:** Angular
 - **Styling:** SCSS
-- **Testing:** Jasmine/Karma (by Angular convention)
+- **Tooling:** Angular CLI
 
 ---
 
 ## 3. Backend: API / Entry Points
 
-The main API exposes RESTful endpoints grouped by entity:
+- **REST Endpoints** (from controllers):
+    - `/api/customers` — Customer CRUD operations
+    - `/api/orders` — Order creation, listing, detail
+    - `/api/products` — Product CRUD operations
 
-- **/api/customers**
-    - GET, POST (managed by `CustomersController.cs`)
-- **/api/orders**
-    - GET, POST (managed by `OrdersController.cs`)
-- **/api/products**
-    - GET, POST (managed by `ProductsController.cs`)
+- **HTTP File:**
+    - `OrderFlow.Api.http` provides sample/request templates for API endpoints.
 
-API contracts are defined in `Contracts/Requests` and `Contracts/Responses`.
-
-> *Note: Exact route patterns and supported verbs are inferred from filename conventions; for supported requests/responses, see the corresponding contracts.*
+- **Validation:** Input models are validated with explicit validators.
 
 ---
 
 ## 4. Backend: Data Layer
 
-- **Database:** Entity Framework Core (EF Core) DbContext (`OrderFlowDbContext.cs`)
-- **Entities:**
-    - Customer (`Entities/Customer.cs`)
-    - Order (`Entities/Order.cs`)
-    - Product (`Entities/Product.cs`)
-    - OrderItem (`Entities/OrderItem.cs`)
-- **Entity Configuration:** Provided in `Persistence/Configurations/*`
-- **Seeding/IDs:** Managed in `SeedIds.cs`
-- **Discount Model:** Implemented via strategy/policy patterns (`Discounts/` and `Discounts/Rules/`)
+- **Database:** Uses Entity Framework Core (`OrderFlowDbContext.cs`)
+- **Entities & Configuration:**
+    - Entities: `Customer`, `Order`, `OrderItem`, `Product`
+    - Configurations: Individual files per entity (e.g., `CustomerConfiguration.cs`)
+    - Enum usage for attributes like `CustomerTier` and `OrderStatus`
+    - Contains seeding logic (`SeedIds.cs`)
+- **No evident distributed caches or additional storage systems.**
 
 ---
 
 ## 5. Frontend: Routing & Pages
 
-Routing is configured in `src/app/app.routes.ts`, with page components as follows:
+Configured via Angular’s router (`app.routes.ts`):
 
-- **Dashboard:** `dashboard/dashboard.component.ts` (likely home/overview)
-- **Customers:** `customers/customers.component.ts`
-- **Products:** `products/products.component.ts`
-- **Orders:** 
-    - List: `orders/order-list/order-list.component.ts`
-    - Create: `orders/order-create/order-create.component.ts`
-    - Detail: `orders/order-detail/order-detail.component.ts`
-
-Page navigation is typical for a CRUD business app, routed under their respective resources.
+- **Main routes/pages:**
+    - `/dashboard` — Dashboard
+    - `/customers` — Customer list, plus dialog for customer creation/editing
+    - `/orders`:
+        - List (`order-list`)
+        - Create (`order-create`)
+        - Details (`order-detail`)
+    - `/products` — Product list, plus dialog for product management
 
 ---
 
 ## 6. Frontend: Component Architecture
 
-Components are grouped by domain feature:
+**Component Structure:**
 
-- **Feature Components:** In feature folders (`customers/`, `products/`, `orders/`, `dashboard/`)
-- **Dialogs/Forms:** `customer-form-dialog.component.*`, `product-form-dialog.component.*`
-- **Shared Components:** 
-    - `shared/components/confirm-dialog/`
-    - `shared/components/empty-state/`
-    - `shared/components/tier-chip/`
-- **Layout/Shell:** App-level frame in `layout/app-shell.component.*`
-
-Composition appears to follow Angular best practices: feature components use shared/util components, forms are presented in dialog components, and state/services are injected.
+- **Core:** Models and API services for data access (`core/models`, `core/services`)
+- **Layout:** `app-shell.component` — root layout/wrapper
+- **Features:**
+    - `dashboard` — Main dashboard interface
+    - `customers` — `customers.component`, `customer-form-dialog.component`
+    - `orders` — `order-list`, `order-detail`, `order-create`
+    - `products` — `products.component`, `product-form-dialog.component`
+- **Shared:** Reusable components (`confirm-dialog`, `empty-state`, `tier-chip`)
+- **Each feature folder holds its own UI and logic.**
 
 ---
 
 ## 7. Frontend: State Management
 
-- **Angular Services:** State/data flow managed via services in `core/services/`:
-    - `customer.service.ts`
-    - `order.service.ts`
-    - `product.service.ts`
-- **Models:** Defined in `core/models/`
-- **Discount Logic:** Some calculation/preview logic present in `discount-preview.util.ts`
-- **No explicit use of NgRx or other state libraries** is evident from the file structure; likely uses service-based state with Observables.
+- **Service-based:** Angular services for each entity type (e.g., `customer.service.ts`, `order.service.ts`) handle HTTP and business logic.
+- **No evidence of NgRx, Redux, or other state libraries.**
+- **Likely using RxJS observables and standard Angular service patterns for sharing state/data.**
 
 ---
 
 ## 8. Key Modules
 
-| Path                                                        | Front/Back | Responsibility                                                        |
-|-------------------------------------------------------------|------------|-----------------------------------------------------------------------|
-| backend/OrderFlow.Api/Controllers/                          | Backend    | API endpoint implementations for Customers, Orders, Products          |
-| backend/OrderFlow.Application/Services/                     | Backend    | Domain/application business logic services                            |
-| backend/OrderFlow.Infrastructure/Persistence/               | Backend    | Database context and entity configurations                            |
-| backend/OrderFlow.Domain/Discounts/                         | Backend    | Discount rules, calculators, and strategy implementations             |
-| backend/OrderFlow.Api/Middleware/ExceptionHandlingMiddleware.cs | Backend | Centralized API exception handling                                    |
-| frontend/orderflow-ui/src/app/dashboard/                    | Frontend   | Dashboard/overview page                                               |
-| frontend/orderflow-ui/src/app/customers/                    | Frontend   | Customers list and form dialog components                             |
-| frontend/orderflow-ui/src/app/orders/                       | Frontend   | Orders CRUD: lists, details, and creator components                   |
-| frontend/orderflow-ui/src/app/products/                     | Frontend   | Products list and form dialog components                              |
-| frontend/orderflow-ui/src/app/layout/                       | Frontend   | App shell/layout components                                           |
-| frontend/orderflow-ui/src/app/core/services/                | Frontend   | Angular services for backend API integration per entity               |
-| frontend/orderflow-ui/src/app/shared/components/            | Frontend   | Reusable UI components (confirm dialog, empty state, etc.)            |
+| Module/Directory                                                                | Frontend/Backend | Responsibility                                                              |
+|---------------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------|
+| `OrderFlow\backend\OrderFlow.Api\Controllers\*Controller.cs`                    | Backend          | API endpoints for customers, orders, products                                |
+| `OrderFlow\backend\OrderFlow.Api\Contracts\Requests\*Request.cs`                | Backend          | API request DTOs (input shapes)                                              |
+| `OrderFlow\backend\OrderFlow.Api\Contracts\Responses\*Response.cs`              | Backend          | API response DTOs (output shapes)                                            |
+| `OrderFlow\backend\OrderFlow.Api\Validation\*Validator.cs`                      | Backend          | Request model validation                                                     |
+| `OrderFlow\backend\OrderFlow.Application\Services\*Service.cs`                  | Backend          | Business logic for each entity                                               |
+| `OrderFlow\backend\OrderFlow.Domain\Entities\*.cs`                              | Backend          | Core domain entities (Customer, Order, Product, OrderItem)                   |
+| `OrderFlow\backend\OrderFlow.Domain\Discounts\*`                                | Backend          | Discount calculation logic and rules                                         |
+| `OrderFlow\backend\OrderFlow.Infrastructure\Persistence\OrderFlowDbContext.cs`  | Backend          | EF Core context (database access)                                            |
+| `OrderFlow\backend\OrderFlow.Infrastructure\Repositories\*Repository.cs`        | Backend          | Data persistence per entity                                                  |
+| `OrderFlow\frontend\orderflow-ui\src\app\app.routes.ts`                        | Frontend         | Main route definitions                                                       |
+| `OrderFlow\frontend\orderflow-ui\src\app\core\models\*`                         | Frontend         | Frontend data shapes (TypeScript interfaces for Customer, Order, Product)    |
+| `OrderFlow\frontend\orderflow-ui\src\app\core\services\*`                       | Frontend         | API access and utility services                                              |
+| `OrderFlow\frontend\orderflow-ui\src\app\customers\*`                           | Frontend         | Components for customer management                                           |
+| `OrderFlow\frontend\orderflow-ui\src\app\orders\*`                              | Frontend         | Order management components                                                  |
+| `OrderFlow\frontend\orderflow-ui\src\app\products\*`                            | Frontend         | Product management components                                                |
+| `OrderFlow\frontend\orderflow-ui\src\app\shared\components\*`                   | Frontend         | Reusable UI primitives (dialogs, chips, etc.)                                |
 
 ---
 
 ## 9. Dependencies
 
-- **Backend:**
-    - ASP.NET Core
-    - Entity Framework Core
-    - (Possibly) FluentValidation or similar for request validation (suggested by `Validator` classes)
-- **Frontend:**
-    - Angular and Angular CLI
-    - UI component dependencies (not explicitly listed; details in package.json)
-    - [No explicit reference to Material or Bootstrap, but could be present; check package.json]
+**Backend:**
+- Entity Framework Core (ORM)
+- ASP.NET Core (Web API, middleware)
+- No explicit third-party cloud or integration services identified.
 
-- **External Services:** None clearly evident.
+**Frontend:**
+- Angular and @angular/* packages
+- RxJS
+- SCSS for styling
+- No evidence of major third-party UI kits (e.g., Material, Bootstrap) from file listing.
 
 ---
 
 ## 10. Build & Deployment Notes
 
 - **Backend:**
-    - Built via .NET tooling (`.csproj` projects, `OrderFlow.slnx` solution)
-    - Configuration via `appsettings.json` and `appsettings.Development.json`
-    - `launchSettings.json` for local Dev config
+    - Built with .NET CLI tools (`.csproj`, `.slnx`)
+    - Configured with `appsettings.json` and environment-specific `appsettings.Development.json`
+    - Launch profiles in `launchSettings.json`
+    - Likely run via `dotnet run` or similar tooling
 
 - **Frontend:**
-    - Built via Angular CLI (configured by `angular.json`, `tsconfig.*.json`)
-    - Standard `ng build`, `ng serve` workflow
-    - Environment files present for prod/dev (`environment.ts`, `environment.prod.ts`)
+    - Built with Angular CLI (`angular.json`, `ng build`)
+    - NPM-based (`package.json`, `package-lock.json`)
+    - TypeScript configuration with `tsconfig.json`.
 
-- **Testing:**
-    - Backend: Unit and integration tests in `/tests/`
-    - Frontend: Not explicitly listed; presumed via Angular's testing conventions
-
-- **Deployment:** No explicit containerization or cloud deployment configuration files are present in the provided structure.
-
----
-```
+- **No explicit Dockerfiles, cloud deployment scripts, or CI/CD YAMLs are present in the listing. Deployment environment and procedures are unclear from current files.**
