@@ -4,157 +4,98 @@
 |---|---|
 | Type | backend |
 | Commit/Fingerprint | `708588caea50` |
-| Analyzed at | 2026-09-16T09:06:01+00:00 |
+| Analyzed at | 2026-09-16T09:07:33+00:00 |
 
 ---
 
-## Language Breakdown
+# NotificationService Architecture
 
-- .cs: 4 file(s)
-- .json: 3 file(s)
-- .csproj: 2 file(s)
-- (no ext): 1 file(s)
-- .slnx: 1 file(s)
-- .md: 1 file(s)
+## 1. Purpose & Overview
 
-## README Excerpt
+**NotificationService** is a small, demo .NET 8 backend microservice that simulates sending customer notifications when an order is confirmed or cancelled in an external order-management system.  
+- It receives HTTP requests representing order-confirmed and order-cancelled events.
+- It validates request payloads.
+- It "sends" notifications by writing log lines (no real email/SMS provider integrated).
+- No data is persisted—responses include a generated notification ID and status.
 
-# OrderFlow.NotificationService
+## 2. Tech Stack
 
-A small standalone .NET 8 minimal-API microservice that simulates sending customer
-notifications when an order is confirmed or cancelled in an external order-management
-system. This is a demo service — it does not integrate with a real email/SMS provider
-and does not persist any data.
+- **Language:** C#
+- **Framework:** .NET 8 Minimal API
+- **Test Framework:** xUnit (for unit/integration testing)
+- **Configuration:** JSON files for environment settings
 
-## What it does
+## 3. API / Entry Points
 
-- Accepts HTTP requests describing order-confirmed and order-cancelled events.
-- Validates the request payload.
-- "Sends" the notification by writing a log line (no real provider involved).
-- Returns a generated notification id and status.
+The service exposes the following HTTP endpoints:
 
-## Project structure
+**POST /api/notifications/order-confirmed**  
+- Accepts order confirmation event payload.
+- Validates fields: `orderId`, `customerName`, `customerEmail` (must be non-empty), `total` (>= 0), `confirmedAtUtc`.
+- On success: logs notification, returns `202 Accepted` with `{ notificationId, status }`.
+- On validation failure: returns `400 Bad Request` with error message.
 
-```
-src/OrderFlow.NotificationService/   Minimal API project (Program.cs, models, validation)
-tests/OrderFlow.NotificationService.Tests/  xUnit tests (happy paths + validation failure)
-```
+**POST /api/notifications/order-cancelled**  
+- Accepts order cancellation event payload.
+- Validates fields: `orderId`, `customerName`, `customerEmail` (must be non-empty), `cancelledAtUtc`.
+- On success: logs notification, returns `202 Accepted` with `{ notificationId, status }`.
+- On validation failure: returns `400 Bad Request` with error message.
 
-## How to run
+**GET /api/notifications/health**  
+- Returns `{ status: "Healthy" }` for service health checking.
 
-```bash
-cd src/OrderFlow.NotificationService
-dotnet run
-```
+**Swagger UI**  
+- Hosted at `/swagger` by default in Development environment.
 
-The service listens on **http://localhost:5100** by default.
+## 4. Data Layer
 
-Swagger UI is available at [http://localhost:5100/swagger](http://localhost:5100/swagger)
-when running in the `Development` environment (the default for `dotnet run`).
+- **No persistent storage:** The service does **not** use a database, cache, or external storage.
+- **Data Model:** Defined in `NotificationModels.cs` (likely includes DTOs for order-confirmed and order-cancelled events).
+- **Configuration:** Uses `appsettings.json` and `appsettings.Development.json` for environment-specific settings.
 
-## How to run the tests
+## 5. Key Modules
 
-```bash
-dotnet test
-```
+- `src/OrderFlow.NotificationService/Program.cs`  
+  - Entry point, sets up the Minimal API and routes.
 
-## Endpoints
+- `src/OrderFlow.NotificationService/Models/NotificationModels.cs`  
+  - Defines request/response models (e.g., notification payloads).
 
-### POST /api/notifications/order-confirmed
+- `src/OrderFlow.NotificationService/Validation/NotificationValidator.cs`  
+  - Handles server-side input validation for the endpoints.
 
-Validates `orderId`, `customerName`, `customerEmail` (non-empty) and `total` (>= 0),
-logs a confirmation notification, and returns `202 Accepted`.
+- `src/OrderFlow.NotificationService/Properties/launchSettings.json`  
+  - Contains local development settings (ports, environment, etc.).
 
-```bash
-curl -X POST http://localhost:5100/api/notifications/order-confirmed \
-  -H "Content-Type: application/json" \
-  -d '{
-    "orderId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "customerName": "Jane Doe",
-    "customerEmail": "jane.doe@example.com",
-    "total": 149.99,
-    "confirmedAtUtc": "2026-09-16T10:00:00Z"
-  }'
-```
+- `src/OrderFlow.NotificationService/appsettings*.json`  
+  - Configures runtime settings (potentially log levels, environment).
 
-Response (`202 Accepted`):
+- `tests/OrderFlow.NotificationService.Tests/NotificationEndpointsTests.cs`  
+  - xUnit test cases for endpoints and validation.
 
-```json
-{
-  "notificationId": "b3c1a2e4-1234-4a5b-9c6d-7e8f9a0b1c2d",
-  "status": "Sent"
-}
-```
+## 6. Dependencies
 
-### POST /api/notifications/order-cancelled
+- **.NET Framework Libraries:** Minimal API stack, JSON handling, logging.
+- **External Services:** None (demo only; does not interface with real email/SMS providers).
+- **Test Libraries:** xUnit for automated testing.
 
-Validates `orderId`, `customerName`, `customerEmail` (non-empty), logs a cancellation
-notification, and returns `202 Accepted`.
+## 7. Deployment Notes
 
-```bash
-curl -X POST http://localhost:5100/api/notifications/order-cancelled \
-  -H "Content-Type: application/json" \
-  -d '{
-    "orderId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "customerName": "Jane Doe",
-    "customerEmail": "jane.doe@example.com",
-    "cancelledAtUtc": "2026-09-16T11:30:00Z"
-  }'
-```
+- **Build/Run:**  
+  - Standard .NET workflow using `dotnet run` from the `src/OrderFlow.NotificationService` directory.
+  - Listens on `http://localhost:5100` by default.
+  - Development environment includes Swagger UI.
 
-Response (`202 Accepted`):
+- **Testing:**  
+  - Execute tests via `dotnet test`.
 
-```json
-{
-  "notificationId": "b3c1a2e4-1234-4a5b-9c6d-7e8f9a0b1c2d",
-  "status": "Sent"
-}
-```
+- **Deployment Configuration:**  
+  - Controlled via `appsettings.json` and `launchSettings.json`; no explicit Docker or cloud configs present.
+  - No CI/CD specifics or deployment scripts (e.g., Dockerfile, YAML) evident.
 
-### GET /api/notifications/health
+---
 
-```bash
-curl http://localhost:5100/api/notifications/health
-```
-
-Response (`200 OK`):
-
-```json
-{
-  "status": "Healthy"
-}
-```
-
-## Validation failures
-
-Missing/empty `orderId`, `customerName`, `customerEmail`, or a negative `total` returns
-`400 Bad Request` with a plain-text error message, e.g.:
-
-```bash
-curl -i -X POST http://localhost:5100/api/notifications/order-confirmed \
-  -H "Content-Type: application/json" \
-  -d '{
-    "orderId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "customerName": "Jane Doe",
-    "customerEmail": "",
-  
-... (truncated)
-
-## Project Structure
-
-```
-.gitignore
-OrderFlow.NotificationService.slnx
-README.md
-src\OrderFlow.NotificationService\OrderFlow.NotificationService.csproj
-src\OrderFlow.NotificationService\Program.cs
-src\OrderFlow.NotificationService\appsettings.Development.json
-src\OrderFlow.NotificationService\appsettings.json
-src\OrderFlow.NotificationService\Models\NotificationModels.cs
-src\OrderFlow.NotificationService\Properties\launchSettings.json
-src\OrderFlow.NotificationService\Validation\NotificationValidator.cs
-tests\OrderFlow.NotificationService.Tests\NotificationEndpointsTests.cs
-tests\OrderFlow.NotificationService.Tests\OrderFlow.NotificationService.Tests.csproj
-```
-
-> Generated in **basic mode** (no LLM configured). Set `LLM_PROVIDER` and the matching API key in `.env` for AI-generated analysis.
+**Uncertainties:**
+- No evidence of production integrations (e.g., SMTP, Twilio, databases).
+- Not clear what logging provider is used, only that log lines are written.
+- No persistence mechanism; notification IDs are generated per request and ephemeral.
